@@ -71,10 +71,13 @@ _main:
 
 	jmpi	go,INITSEG 	;; jmpi 是一个段间跳转指令，表示跳转到 0x9000:go 处执行，由于段基址要左移四位，因此实际上是到 0x90000:go 处
 
-go:	mov	ax,cs		
+go:	mov	ax,cs		;; 将 cs 寄存器的值赋值给 ax，由于上一条指令执行了 `jmpi	go,0x9000`，因此 cs 寄存器当前值为 0x9000
 	mov	dx,#0x4000-12	! 0x4000 is arbitrary value >= length of
 				! bootsect + length of setup + room for stack
 				! 12 is disk parm size
+				;; 0x4000 是一个大于 bootsect+setup+stack 的值
+				;; 12 是磁盘参数的大小
+				;; 实际上就是使栈指针远离代码段
 
 ! bde - changed 0xff00 to 0x4000 to use debugger at 0x6400 up (bde).  We
 ! wouldn't have to worry about this if we checked the top of memory.  Also
@@ -82,10 +85,10 @@ go:	mov	ax,cs
 ! instead of in the vector table.  The old stack might have clobbered the
 ! drive table.
 
-	mov	ds,ax
-	mov	es,ax
-	mov	ss,ax		! put stack at INITSEG:0x4000-12.
-	mov	sp,dx
+	mov	ds,ax	;; 将 ds 寄存器赋值 0x9000
+	mov	es,ax	;; 将 es 寄存器赋值 0x9000
+	mov	ss,ax	;; 将 ss 寄存器赋值 0x9000	
+	mov	sp,dx	! put stack at INITSEG:0x4000-12. ;; 设置栈顶指针值为 0x4000-12
 /*
  *	Many BIOS's default disk parameter tables will not 
  *	recognize multi-sector reads beyond the maximum sector number
