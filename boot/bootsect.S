@@ -5,6 +5,7 @@
 !
 #include <linux/config.h>
 SYSSIZE = DEF_SYSSIZE
+; SYS_SIZE 是当前内核包所用的内存大小
 !
 !	bootsect.s		Copyright (C) 1991, 1992 Linus Torvalds
 !	modified by Drew Eckhardt
@@ -31,8 +32,8 @@ SYSSIZE = DEF_SYSSIZE
 
 .text
 
-SETUPSECS = 4				! nr of setup-sectors
-BOOTSEG   = 0x07C0			! original address of boot-sector
+SETUPSECS = 4					! nr of setup-sectors
+BOOTSEG   = 0x07C0				! original address of boot-sector
 INITSEG   = DEF_INITSEG			! we move boot here - out of the way
 SETUPSEG  = DEF_SETUPSEG		! setup starts here
 SYSSEG    = DEF_SYSSEG			! system loaded at 0x10000 (65536).
@@ -56,17 +57,19 @@ _main:
 #if 0 /* hook for debugger, harmless unless BIOS is fussy (old HP) */
 	int	3
 #endif
-	mov	ax,#BOOTSEG
-	mov	ds,ax
+	mov	ax,#BOOTSEG ;; 将 0x07C0 值赋值给 ax 寄存器（由于段基址要先左移四位，因此 0x07c0 -> 0x7c00）
+	mov	ds,ax		;; 将 ax 寄存器值赋值给 ds 寄存器
 	mov	ax,#INITSEG
-	mov	es,ax
-	mov	cx,#256
-	sub	si,si
-	sub	di,di
-	cld
-	rep
-	movsw
-	jmpi	go,INITSEG
+	mov	es,ax		;; es 寄存器赋值 0x9000
+	mov	cx,#256 	;; 设置 mav 计数 256（以字（word）为单位，1 word = 2 byte）
+	sub	si,si		;; 清空 si 寄存器
+	sub	di,di		;; 清空 di 寄存器
+	cld				;; 使 si 自增
+	rep				;; rep 表示重复后面的指令
+	movsw			;; movsw 表示一次复制一个字
+	;; 上面这段程序的意思：将内存地址 0x7c00 处开始往后的 512 字节的数据，原封不动复制到 0x90000 处
+
+	jmpi	go,INITSEG 	;; jmpi 是一个段间跳转指令，表示跳转到 0x9000:go 处执行，由于段基址要左移四位，因此实际上是到 0x90000:go 处
 
 go:	mov	ax,cs		
 	mov	dx,#0x4000-12	! 0x4000 is arbitrary value >= length of
