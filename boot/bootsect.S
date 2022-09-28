@@ -57,6 +57,7 @@ _main:
 #if 0 /* hook for debugger, harmless unless BIOS is fussy (old HP) */
 	int	3
 #endif
+@@@@@@@@@@@  1. 将自身(bootsect)从 0x7c00 移动到 0x90000 处，共256字(512字节)  @@@@@@@@@@@
 	mov	ax,#BOOTSEG ;; 将 0x07C0 值赋值给 ax 寄存器（由于段基址要先左移四位，因此 0x07c0 -> 0x7c00）
 	mov	ds,ax		;; 将 ax 寄存器值赋值给 ds 寄存器
 	mov	ax,#INITSEG
@@ -71,6 +72,7 @@ _main:
 
 	jmpi	go,INITSEG 	;; jmpi 是一个段间跳转指令，表示跳转到 0x9000:go 处执行，由于段基址要左移四位，因此实际上是到 0x90000:go 处
 
+@@@@@@@@@@@  2. 设置 ds es ss 寄存器值和临时栈  @@@@@@@@@@@
 go:	mov	ax,cs		;; 将 cs 寄存器的值赋值给 ax，由于上一条指令执行了 `jmpi	go,0x9000`，因此 cs 寄存器当前值为 0x9000
 	mov	dx,#0x4000-12	! 0x4000 is arbitrary value >= length of
 				! bootsect + length of setup + room for stack
@@ -105,14 +107,31 @@ go:	mov	ax,cs		;; 将 cs 寄存器的值赋值给 ax，由于上一条指令执�
  *	Segments are as follows: ds=es=ss=cs - INITSEG,
  *		fs = 0, gs = parameter table segment
  */
+/*
+ * 对于多扇区读操作所读的扇区数超过默认磁盘参数表中指定的最大扇区数时，很多BIOS
+ * 将不能进行正确识别。在某些情况下是7个扇区。
+ *
+ * 由于单扇区读操作太慢而且是不可能存在的情况。我们必须通过在内存中重新创建新的参数表(为第1个驱动器)
+ * 来解决这个问题。我们将把其中最大扇区数设置为18，即在1.44MB磁盘上会碰到的最大值。
+ *
+ * 数值大不会出问题，但太小就不行了。
+ *
+ * 段寄存器将被设置成：ds = es = ss = cs 都为INITSEG(0x9000),
+ * fs = 0, gs = 参数表所在段值。
+ */
 
+@@@@@@@@@@@  3. 修改软驱参数表地址  @@@@@@@@@@@
+/*
+ * BIOS 中断 0x1e 的中断向量值是软驱参数表地址
+ */
 	push	#0
 	pop	fs
 	mov	bx,#0x78		! fs:bx is parameter table address
+
 	seg fs
 	lgs	si,(bx)			! gs:si is source
 
-	mov	di,dx			! es:di is destination
+	mov	di,dx			! es:di is destination	;; 0x9000:0xfef4
 	mov	cx,#6			! copy 12 bytes
 	cld
 
@@ -121,7 +140,7 @@ go:	mov	ax,cs		;; 将 cs 寄存器的值赋值给 ax，由于上一条指令执�
 	movsw
 
 	mov	di,dx
-	movb	4(di),*18		! patch sector count
+	movb	4(di),*18		! patch sector count ;; 修改新表最大扇区数为 18
 
 	seg fs
 	mov	(bx),di
