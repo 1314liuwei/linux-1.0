@@ -158,21 +158,24 @@ go:	mov	ax,cs		;; 将 cs 寄存器的值赋值给 ax，由于上一条指令执�
 ! load the setup-sectors directly after the bootblock.
 ! Note that 'es' is already set up.
 
+@@@@@@@@@@@  4. 加载 setup 模块到 0x90200 开始处  @@@@@@@@@@@
 load_setup:
-	xor	dx, dx			! drive 0, head 0
-	mov	cx,#0x0002		! sector 2, track 0
-	mov	bx,#0x0200		! address = 512, in INITSEG
-	mov	ax,#0x0200+SETUPSECS	! service 2, nr of sectors
-					! (assume all on head 0, track 0)
-	int	0x13			! read it
-	jnc	ok_load_setup		! ok - continue
+	xor	dx, dx			! drive 0, head 0	
+	mov	cx,#0x0002		! sector 2, track 0				    ;; 从第 2 扇区开始
+	mov	bx,#0x0200		! address = 512, in INITSEG		   	;; 起始地址为 #0x0200
+	mov	ax,#0x0200+SETUPSECS	! service 2, nr of sectors 	;; 4 个扇区
+						! (assume all on head 0, track 0)	
+	int	0x13			! read it 							;; 执行 0x13 号中断（读取磁盘）
+	jnc	ok_load_setup	! ok - continue						;; 磁盘加载成功则跳转
 
-	push	ax			! dump error code
+;;  如果加载出错的话就显示出错扇区位置
+	push	ax			! dump error code					
 	call	print_nl
 	mov	bp, sp
 	call	print_hex
 	pop	ax	
 	
+;;	复位磁盘控制器，重试
 	xor	dl, dl			! reset FDC
 	xor	ah, ah
 	int	0x13
@@ -407,6 +410,11 @@ no_reg:
 	loop	print_loop
 	ret
 
+; ===========================================================
+; 函数名: print_nl
+; input: 没有输入
+; 效果：换行并将光标置到第一列
+; ===========================================================
 print_nl:
 	mov	ax, #0xe0d	! CR
 	int	0x10
